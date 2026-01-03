@@ -674,7 +674,6 @@ function eatEquation() {
                 setTimeout(() => {
                     gameState.playerFrozen = false;
                 }, 2000);
-                loseLife();
             }
             
             renderGrid();
@@ -733,7 +732,6 @@ function processEating() {
         setTimeout(() => {
             gameState.playerFrozen = false;
         }, 2000);
-        loseLife();
     }
     
     renderGrid();
