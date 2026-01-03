@@ -21,10 +21,6 @@ const gameState = {
     playerFrozen: false
 };
 
-// Monster emojis
-const PLAYER_MONSTER = '👾';
-const ENEMY_MONSTERS = ['👹', '👺', '🤖'];
-
 // Initialize the game
 function initGame() {
     gameState.score = 0;
@@ -109,21 +105,44 @@ function startLevel() {
     // Create enemies (use configured number)
     const numEnemies = gameState.numEnemies;
     gameState.enemies = [];
+    gameState.enemyWarnings = []; // Track incoming enemies for warnings
+    
     for (let i = 0; i < numEnemies; i++) {
+        // Start enemies off-screen and mark them as entering
+        const side = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
         let enemyPos;
-        do {
-            enemyPos = {
-                row: Math.floor(Math.random() * gameState.gridHeight),
-                col: Math.floor(Math.random() * gameState.gridWidth)
-            };
-        } while (
-            (enemyPos.row === gameState.playerPosition.row && 
-             enemyPos.col === gameState.playerPosition.col) ||
-            gameState.safeZones.some(s => s.row === enemyPos.row && s.col === enemyPos.col) ||
-            gameState.enemies.some(e => e.row === enemyPos.row && e.col === enemyPos.col)
-        );
+        const entryDelay = 1500 + (i * 1000); // First enemy at 1.5s, then 1s apart
+        
+        switch(side) {
+            case 0: // top
+                enemyPos = { row: -1, col: Math.floor(Math.random() * gameState.gridWidth), entering: true, side: 'top' };
+                break;
+            case 1: // right
+                enemyPos = { row: Math.floor(Math.random() * gameState.gridHeight), col: gameState.gridWidth, entering: true, side: 'right' };
+                break;
+            case 2: // bottom
+                enemyPos = { row: gameState.gridHeight, col: Math.floor(Math.random() * gameState.gridWidth), entering: true, side: 'bottom' };
+                break;
+            case 3: // left
+                enemyPos = { row: Math.floor(Math.random() * gameState.gridHeight), col: -1, entering: true, side: 'left' };
+                break;
+        }
         
         gameState.enemies.push(enemyPos);
+        
+        // Add warning indicator
+        gameState.enemyWarnings.push({
+            side: enemyPos.side,
+            timeRemaining: entryDelay,
+            index: i
+        });
+        
+        // Stagger enemy entry
+        setTimeout(() => {
+            if (!gameState.gameOver) {
+                moveEnemyOntoGrid(i);
+            }
+        }, entryDelay);
     }
     
     updateDisplay();
@@ -133,7 +152,13 @@ function startLevel() {
     if (gameState.enemyInterval) {
         clearInterval(gameState.enemyInterval);
     }
-    gameState.enemyInterval = setInterval(moveEnemies, 800);
+    gameState.enemyInterval = setInterval(moveEnemies, 2000);
+    
+    // Start enemy warning countdown
+    if (gameState.warningInterval) {
+        clearInterval(gameState.warningInterval);
+    }
+    gameState.warningInterval = setInterval(updateWarnings, 100);
     
     // Start safe zone movement
     if (gameState.safeZoneInterval) {
@@ -142,6 +167,86 @@ function startLevel() {
     if (gameState.numSafeZones > 0) {
         gameState.safeZoneInterval = setInterval(moveSafeZones, 3000);
     }
+}
+
+// Update enemy warnings
+function updateWarnings() {
+    if (gameState.gameOver || gameState.paused) return;
+    
+    gameState.enemyWarnings.forEach(warning => {
+        warning.timeRemaining -= 100;
+    });
+    
+    renderWarnings();
+}
+
+// Render enemy warnings on grid edges
+function renderWarnings() {
+    // Remove old warnings
+    const oldWarnings = document.querySelectorAll('.enemy-warning');
+    oldWarnings.forEach(w => w.remove());
+    
+    const board = document.getElementById('game-board');
+    
+    gameState.enemyWarnings.forEach(warning => {
+        if (warning.timeRemaining > 0) {
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'enemy-warning enemy-warning-' + warning.side;
+            const seconds = Math.ceil(warning.timeRemaining / 1000);
+            warningDiv.innerHTML = `<span class="warning-icon">⚠️</span><span class="warning-time">${seconds}s</span>`;
+            board.parentElement.appendChild(warningDiv);
+        }
+    });
+}
+
+// Move an enemy from off-screen onto the grid
+function moveEnemyOntoGrid(enemyIndex) {
+    const enemy = gameState.enemies[enemyIndex];
+    if (!enemy || !enemy.entering) return;
+    
+    // Move enemy one step onto the grid
+    if (enemy.row < 0) enemy.row = 0;
+    else if (enemy.row >= gameState.gridHeight) enemy.row = gameState.gridHeight - 1;
+    
+    if (enemy.col < 0) enemy.col = 0;
+    else if (enemy.col >= gameState.gridWidth) enemy.col = gameState.gridWidth - 1;
+    
+    // Check if position conflicts with player or safe zones
+    const conflicts = (enemy.row === gameState.playerPosition.row && enemy.col === gameState.playerPosition.col) ||
+                     gameState.safeZones.some(s => s.row === enemy.row && s.col === enemy.col);
+    
+    if (conflicts) {
+        // Find nearby safe spot
+        const directions = [
+            {row: -1, col: 0}, {row: 1, col: 0}, 
+            {row: 0, col: -1}, {row: 0, col: 1}
+        ];
+        
+        for (let dir of directions) {
+            const newRow = Math.max(0, Math.min(gameState.gridHeight - 1, enemy.row + dir.row));
+            const newCol = Math.max(0, Math.min(gameState.gridWidth - 1, enemy.col + dir.col));
+            
+            const safe = !gameState.safeZones.some(s => s.row === newRow && s.col === newCol) &&
+                        !(newRow === gameState.playerPosition.row && newCol === gameState.playerPosition.col);
+            
+            if (safe) {
+                enemy.row = newRow;
+                enemy.col = newCol;
+                break;
+            }
+        }
+    }
+    
+    enemy.entering = false;
+    
+    // Remove the warning for this enemy
+    const warningIndex = gameState.enemyWarnings.findIndex(w => w.index === enemyIndex);
+    if (warningIndex !== -1) {
+        gameState.enemyWarnings.splice(warningIndex, 1);
+    }
+    
+    renderGrid();
+    renderWarnings();
 }
 
 // Create grid with math equations
@@ -404,7 +509,12 @@ function renderGrid() {
             if (row === gameState.playerPosition.row && col === gameState.playerPosition.col) {
                 const monster = document.createElement('div');
                 monster.className = 'monster player-monster';
-                monster.textContent = PLAYER_MONSTER;
+                
+                // Add mouth element
+                const mouth = document.createElement('div');
+                mouth.className = 'player-monster-mouth';
+                monster.appendChild(mouth);
+                
                 cell.appendChild(monster);
             }
             
@@ -417,10 +527,10 @@ function renderGrid() {
             
             // Add enemies
             gameState.enemies.forEach((enemy, index) => {
-                if (row === enemy.row && col === enemy.col) {
+                // Only render enemies that are on the grid (not entering)
+                if (!enemy.entering && row === enemy.row && col === enemy.col) {
                     const monster = document.createElement('div');
                     monster.className = 'monster enemy-monster';
-                    monster.textContent = ENEMY_MONSTERS[index % ENEMY_MONSTERS.length];
                     cell.appendChild(monster);
                 }
             });
@@ -493,6 +603,79 @@ function eatEquation() {
         return; // Already eaten
     }
     
+    // Trigger eating animation BEFORE processing
+    const cellElement = document.querySelector(`[data-row="${pos.row}"][data-col="${pos.col}"]`);
+    const monsterElement = cellElement ? cellElement.querySelector('.player-monster') : null;
+    
+    if (cellElement && monsterElement) {
+        cellElement.classList.add('eating');
+        monsterElement.classList.add('eating');
+        
+        // Wait for animation to complete before processing
+        setTimeout(() => {
+            cellElement.classList.remove('eating');
+            monsterElement.classList.remove('eating');
+            
+            // Now mark as eaten and process result
+            cell.eaten = true;
+            
+            if (cell.isCorrect) {
+                // Correct answer!
+                gameState.score += 10 * gameState.level;
+                gameState.correctAnswers++;
+                
+                // Check if level complete
+                if (gameState.correctAnswers >= gameState.totalCorrect) {
+                    gameState.level++;
+                    gameState.paused = true;
+                    setTimeout(() => {
+                        gameState.paused = false;
+                        startLevel();
+                    }, 1000);
+                }
+            } else {
+                // Wrong answer!
+                let feedbackMessage;
+                
+                if (gameState.gameMode === 'multiples') {
+                    feedbackMessage = `❌ Oops! ${cell.value} is not a multiple of ${gameState.targetNumber}`;
+                } else if (gameState.gameMode === 'factors') {
+                    feedbackMessage = `❌ Oops! ${cell.value} is not a factor of ${gameState.targetNumber}`;
+                } else if (gameState.gameMode === 'inequality') {
+                    const correctOp = gameState.inequalityOperator;
+                    feedbackMessage = `❌ Oops! ${cell.num1} ${cell.operation} ${cell.num2} = ${cell.value}, not ${correctOp} ${gameState.targetNumber}`;
+                } else { // equals
+                    const correctAnswer = cell.operation === '+' 
+                        ? cell.num1 + cell.num2 
+                        : cell.num1 - cell.num2;
+                    feedbackMessage = `❌ Oops! ${cell.num1} ${cell.operation} ${cell.num2} = ${correctAnswer}`;
+                }
+                
+                showNotification(feedbackMessage);
+                
+                gameState.playerFrozen = true;
+                setTimeout(() => {
+                    gameState.playerFrozen = false;
+                }, 2000);
+                loseLife();
+            }
+            
+            renderGrid();
+            updateDisplay();
+        }, 600);
+    } else {
+        // Fallback if elements not found - process immediately
+        processEating();
+    }
+}
+
+// Helper function to process eating without animation
+function processEating() {
+    const pos = gameState.playerPosition;
+    const cell = gameState.grid[pos.row][pos.col];
+    
+    if (cell.eaten) return;
+    
     cell.eaten = true;
     
     if (cell.isCorrect) {
@@ -545,6 +728,9 @@ function moveEnemies() {
     if (gameState.gameOver || gameState.paused) return;
     
     gameState.enemies.forEach(enemy => {
+        // Skip enemies that haven't entered the grid yet
+        if (enemy.entering) return;
+        
         const directions = ['up', 'down', 'left', 'right'];
         const direction = directions[Math.floor(Math.random() * directions.length)];
         
@@ -653,6 +839,7 @@ function endGame(won) {
     gameState.gameOver = true;
     clearInterval(gameState.enemyInterval);
     clearInterval(gameState.safeZoneInterval);
+    clearInterval(gameState.warningInterval);
     
     const modal = document.getElementById('game-over');
     const title = document.getElementById('game-over-title');
