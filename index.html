@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Monsters - Math Adventure!</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <header>
+            <h1>🎓 Learning Monsters 🎓</h1>
+        </header>
+        
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <div class="start-content">
+                <h2>Welcome to Learning Monsters!</h2>
+                <p class="subtitle">Choose your adventure</p>
+                
+                <div class="config-section">
+                    <label for="game-mode-start">Game Mode:</label>
+                    <select id="game-mode-start">
+                        <option value="equals">Equals - Find matching equations</option>
+                        <option value="multiples">Multiples - Find multiples of a number</option>
+                        <option value="factors">Factors - Find factors of a number</option>
+                        <option value="inequality">Inequality - Greater than or less than</option>
+                    </select>
+                </div>
+                
+                <div class="config-section">
+                    <label for="num-enemies">Number of Enemy Monsters:</label>
+                    <select id="num-enemies">
+                        <option value="1">1 - Easy</option>
+                        <option value="2" selected>2 - Medium</option>
+                        <option value="3">3 - Hard</option>
+                        <option value="4">4 - Very Hard</option>
+                    </select>
+                </div>
+                
+                <div class="config-section">
+                    <label for="num-safe-zones">Number of Safe Zones:</label>
+                    <select id="num-safe-zones">
+                        <option value="0">0 - No safety!</option>
+                        <option value="1" selected>1 - Normal</option>
+                        <option value="2">2 - Safer</option>
+                        <option value="3">3 - Very safe</option>
+                    </select>
+                </div>
+                
+                <button id="start-game-btn" class="big-button">Start Game!</button>
+            </div>
+        </div>
+        
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+        <div class="game-info">
+            <button id="back-to-menu-btn" class="small-button">⬅️ Back to Menu</button>
+            
+            <div class="target-answer">
+                <h2 id="target-text">Find equations that equal: <span id="target-number">8</span></h2>
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Lives:</span>
+                    <span id="lives">❤️ ❤️ ❤️</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Level:</span>
+                    <span id="level">1</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-board"></div>
+
+        <div class="controls">
+            <p>🎮 Use Arrow Keys to move your monster</p>
+            <p>⌨️ Press SPACE to eat the equation!</p>
+            <p>🍴 Eat the correct equations!</p>
+            <p>🏠 Stay in the safe zone to avoid enemies!</p>
+            <p>⚠️ Avoid the enemy monsters!</p>
+        </div>
+        </div>
+        <!-- End Game Screen -->
+
+        <div id="game-over" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="game-over-title">Game Over!</h2>
+                <p id="game-over-message">Your final score: <span id="final-score">0</span></p>
+                <button id="restart-btn">Play Again</button>
+            </div>
+        </div>
+
+        <div id="notification" class="notification hidden"></div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
