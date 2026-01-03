@@ -18,7 +18,8 @@ const gameState = {
     totalCorrect: 0,
     gameOver: false,
     paused: false,
-    playerFrozen: false
+    playerFrozen: false,
+    pendingRespawn: null
 };
 
 // Initialize the game
@@ -28,11 +29,14 @@ function initGame() {
     gameState.level = 1;
     gameState.gameOver = false;
     gameState.paused = false;
+    gameState.playerFrozen = false;
+    gameState.pendingRespawn = null;
     gameState.gameMode = document.getElementById('game-mode-start').value;
     gameState.numEnemies = parseInt(document.getElementById('num-enemies').value);
     gameState.numSafeZones = parseInt(document.getElementById('num-safe-zones').value);
     
     document.getElementById('game-over').classList.add('hidden');
+    document.getElementById('life-lost').classList.add('hidden');
     
     startLevel();
 }
@@ -213,7 +217,8 @@ function moveEnemyOntoGrid(enemyIndex) {
     
     // Check if position conflicts with player or safe zones
     const conflicts = (enemy.row === gameState.playerPosition.row && enemy.col === gameState.playerPosition.col) ||
-                     gameState.safeZones.some(s => s.row === enemy.row && s.col === enemy.col);
+                     gameState.safeZones.some(s => s.row === enemy.row && s.col === enemy.col) ||
+                     gameState.enemies.some((other, idx) => idx !== enemyIndex && !other.entering && other.row === enemy.row && other.col === enemy.col);
     
     if (conflicts) {
         // Find nearby safe spot
@@ -227,7 +232,8 @@ function moveEnemyOntoGrid(enemyIndex) {
             const newCol = Math.max(0, Math.min(gameState.gridWidth - 1, enemy.col + dir.col));
             
             const safe = !gameState.safeZones.some(s => s.row === newRow && s.col === newCol) &&
-                        !(newRow === gameState.playerPosition.row && newCol === gameState.playerPosition.col);
+                        !(newRow === gameState.playerPosition.row && newCol === gameState.playerPosition.col) &&
+                        !gameState.enemies.some((other, idx) => idx !== enemyIndex && !other.entering && other.row === newRow && other.col === newCol);
             
             if (safe) {
                 enemy.row = newRow;
@@ -531,6 +537,12 @@ function renderGrid() {
                 if (!enemy.entering && row === enemy.row && col === enemy.col) {
                     const monster = document.createElement('div');
                     monster.className = 'monster enemy-monster';
+                    
+                    // Add teeth element
+                    const teeth = document.createElement('div');
+                    teeth.className = 'enemy-teeth';
+                    monster.appendChild(teeth);
+                    
                     cell.appendChild(monster);
                 }
             });
@@ -560,6 +572,11 @@ function updateDisplay() {
     // Update lives display
     const hearts = '❤️ '.repeat(gameState.lives);
     document.getElementById('lives').textContent = hearts || '💀';
+
+    const livesRemaining = document.getElementById('lives-remaining');
+    if (livesRemaining) {
+        livesRemaining.textContent = Math.max(gameState.lives, 0);
+    }
 }
 
 // Handle player movement
@@ -756,7 +773,10 @@ function moveEnemies() {
             newPos.row === s.row && newPos.col === s.col
         );
         
-        if (!isOnSafeZone) {
+        const collidesWithEnemy = gameState.enemies.some(other => other !== enemy && !other.entering && other.row === newPos.row && other.col === newPos.col);
+        const collidesWithPlayer = newPos.row === gameState.playerPosition.row && newPos.col === gameState.playerPosition.col;
+        
+        if (!isOnSafeZone && !collidesWithEnemy && !collidesWithPlayer) {
             enemy.row = newPos.row;
             enemy.col = newPos.col;
         }
@@ -813,9 +833,16 @@ function checkEnemyCollision() {
 
 // Lose a life
 function loseLife() {
+    if (gameState.gameOver) return;
+
     gameState.lives--;
+    gameState.playerFrozen = false;
+    gameState.paused = true;
+    gameState.pendingRespawn = null;
+    updateDisplay();
     
     if (gameState.lives <= 0) {
+        document.getElementById('life-lost').classList.add('hidden');
         endGame(false);
     } else {
         // Respawn player in a new position
@@ -828,10 +855,12 @@ function loseLife() {
         } while (
             gameState.enemies.some(e => e.row === newPos.row && e.col === newPos.col)
         );
-        gameState.playerPosition = newPos;
+        gameState.pendingRespawn = newPos;
+        gameState.playerPosition = { row: -1, col: -1 };
+        renderGrid();
+        const modal = document.getElementById('life-lost');
+        modal.classList.remove('hidden');
     }
-    
-    updateDisplay();
 }
 
 // End the game
@@ -840,6 +869,7 @@ function endGame(won) {
     clearInterval(gameState.enemyInterval);
     clearInterval(gameState.safeZoneInterval);
     clearInterval(gameState.warningInterval);
+    document.getElementById('life-lost').classList.add('hidden');
     
     const modal = document.getElementById('game-over');
     const title = document.getElementById('game-over-title');
@@ -905,6 +935,23 @@ document.getElementById('back-to-menu-btn').addEventListener('click', () => {
     gameState.gameOver = true;
     clearInterval(gameState.enemyInterval);
     clearInterval(gameState.safeZoneInterval);
+    document.getElementById('life-lost').classList.add('hidden');
+});
+
+// Next life button
+document.getElementById('next-life-btn').addEventListener('click', () => {
+    if (gameState.gameOver || !gameState.pendingRespawn) {
+        document.getElementById('life-lost').classList.add('hidden');
+        return;
+    }
+    document.getElementById('life-lost').classList.add('hidden');
+    gameState.playerPosition = { ...gameState.pendingRespawn };
+    gameState.pendingRespawn = null;
+    gameState.paused = false;
+    gameState.playerFrozen = false;
+    renderGrid();
+    updateDisplay();
+    checkEnemyCollision();
 });
 
 // Start the game when page loads (show start screen) (show start screen)
