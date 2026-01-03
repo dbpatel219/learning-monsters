@@ -256,9 +256,10 @@ header h1 {
     border-radius: 50%;
     top: 18px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) scaleY(1);
+    transform-origin: center 50%;
     box-shadow: 14px 0 0 white;
-    animation: blink 3s infinite;
+    transition: transform 0.12s ease;
 }
 
 /* Player mouth */
@@ -344,9 +345,14 @@ header h1 {
     border-radius: 50%;
     top: 20px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) scaleY(1);
+    transform-origin: center 50%;
     box-shadow: 12px 0 0 #ff0000;
-    animation: blink 2s infinite;
+    transition: transform 0.12s ease;
+}
+
+.monster.blink::after {
+    transform: translateX(-50%) scaleY(0.1);
 }
 
 /* Enemy teeth */
@@ -393,11 +399,6 @@ header h1 {
 @keyframes enemyWalk {
     0% { transform: translateY(0) rotate(-2deg); }
     50% { transform: translateY(-2px) rotate(2deg); }
-}
-
-@keyframes blink {
-    0%, 90%, 100% { opacity: 1; }
-    95% { opacity: 0; }
 }
 
 @keyframes bounce {

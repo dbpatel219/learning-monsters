@@ -19,7 +19,8 @@ const gameState = {
     gameOver: false,
     paused: false,
     playerFrozen: false,
-    pendingRespawn: null
+    pendingRespawn: null,
+    blinkInterval: null
 };
 
 // Initialize the game
@@ -37,6 +38,7 @@ function initGame() {
     
     document.getElementById('game-over').classList.add('hidden');
     document.getElementById('life-lost').classList.add('hidden');
+    stopBlinkLoop();
     
     startLevel();
 }
@@ -550,6 +552,10 @@ function renderGrid() {
             board.appendChild(cell);
         }
     }
+
+    if (!gameState.blinkInterval) {
+        startBlinkLoop();
+    }
 }
 
 // Show notification message
@@ -561,6 +567,37 @@ function showNotification(message) {
     setTimeout(() => {
         notification.classList.add('hidden');
     }, 2000);
+}
+
+function stopBlinkLoop() {
+    if (gameState.blinkInterval) {
+        clearInterval(gameState.blinkInterval);
+        gameState.blinkInterval = null;
+    }
+}
+
+function triggerBlinkCycle() {
+    const monsters = document.querySelectorAll('.player-monster, .enemy-monster');
+    monsters.forEach(monster => {
+        const delay = Math.random() * 400;
+        setTimeout(() => {
+            if (gameState.gameOver || !document.body.contains(monster)) return;
+            monster.classList.add('blink');
+            setTimeout(() => {
+                monster.classList.remove('blink');
+            }, 140);
+        }, delay);
+    });
+}
+
+function startBlinkLoop() {
+    stopBlinkLoop();
+    triggerBlinkCycle();
+    gameState.blinkInterval = setInterval(() => {
+        if (!gameState.gameOver) {
+            triggerBlinkCycle();
+        }
+    }, 2200);
 }
 
 // Update display (score, lives, etc.)
@@ -867,6 +904,7 @@ function endGame(won) {
     clearInterval(gameState.enemyInterval);
     clearInterval(gameState.safeZoneInterval);
     clearInterval(gameState.warningInterval);
+    stopBlinkLoop();
     document.getElementById('life-lost').classList.add('hidden');
     
     const modal = document.getElementById('game-over');
@@ -933,6 +971,7 @@ document.getElementById('back-to-menu-btn').addEventListener('click', () => {
     gameState.gameOver = true;
     clearInterval(gameState.enemyInterval);
     clearInterval(gameState.safeZoneInterval);
+    stopBlinkLoop();
     document.getElementById('life-lost').classList.add('hidden');
 });
 
